@@ -55,7 +55,7 @@ jobs:
           echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
           
       - name: 🚀 Ejecutar pruebas K6 (Local)
-        if: ${{ !secrets.K6_CLOUD_TOKEN }}
+        if: secrets.K6_CLOUD_TOKEN == ''
         run: |
           cd pruebas_k6
           k6 run --out json=results.json my-script.js
@@ -63,7 +63,7 @@ jobs:
           BASE_URL: ${{ env.BASE_URL }}
           
       - name: ☁️ Ejecutar pruebas K6 (Grafana Cloud)
-        if: ${{ secrets.K6_CLOUD_TOKEN }}
+        if: secrets.K6_CLOUD_TOKEN != ''
         run: |
           cd pruebas_k6
           k6 cloud my-script.js
