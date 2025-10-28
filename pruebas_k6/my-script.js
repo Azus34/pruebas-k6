@@ -28,11 +28,9 @@ export const options = {
     success_rate: ["rate>0.9"], // Más del 90% de éxito
   },
   // Integración con Grafana Cloud
-  ext: {
-    loadimpact: {
-      projectID: 3735219,
-      name: "VOBE Load Test - CI/CD Pipeline"
-    }
+  cloud: {
+    projectID: 5266622,
+    name: "VOBE Load Test - CI/CD Pipeline"
   }
 };
 
