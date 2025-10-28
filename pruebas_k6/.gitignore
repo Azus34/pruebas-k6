@@ -1,0 +1,31 @@
+# Archivos de resultados y reportes
+summary.html
+results.json
+*.log
+
+# Archivos de documentación (no subir a GitHub)
+*.md
+!README.md
+
+# Variables de entorno
+.env
+.env.local
+.env.production
+
+# Node modules (si se usa para scripts auxiliares)
+node_modules/
+
+# Archivos temporales de K6
+k6_*.json
+k6_*.html
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

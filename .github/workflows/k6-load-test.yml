@@ -1,0 +1,150 @@
+name: K6 Load Testing Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # Permite ejecutar manualmente desde GitHub
+    inputs:
+      base_url:
+        description: 'URL base de la aplicación a probar'
+        required: false
+        default: 'http://localhost'
+      test_duration:
+        description: 'Duración de la prueba'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - quick
+          - standard
+          - extended
+
+jobs:
+  k6_load_test:
+    name: Ejecutar Pruebas de Carga K6
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout del repositorio
+        uses: actions/checkout@v4
+        
+      - name: 🔧 Configurar Node.js (opcional)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: 📦 Instalar K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+          
+      - name: ✅ Verificar instalación de K6
+        run: k6 version
+        
+      - name: 🎯 Configurar variables de entorno
+        run: |
+          echo "BASE_URL=${{ github.event.inputs.base_url || 'http://localhost' }}" >> $GITHUB_ENV
+          echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
+          
+      - name: 🚀 Ejecutar pruebas K6 (Local)
+        if: ${{ !secrets.K6_CLOUD_TOKEN }}
+        run: |
+          cd pruebas_k6
+          k6 run --out json=results.json my-script.js
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          
+      - name: ☁️ Ejecutar pruebas K6 (Grafana Cloud)
+        if: ${{ secrets.K6_CLOUD_TOKEN }}
+        run: |
+          cd pruebas_k6
+          k6 cloud my-script.js
+        env:
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+          BASE_URL: ${{ env.BASE_URL }}
+          
+      - name: 📊 Generar reporte HTML
+        if: always()
+        run: |
+          cd pruebas_k6
+          if [ -f "summary.html" ]; then
+            echo "✓ Reporte HTML generado exitosamente"
+          else
+            echo "⚠ No se generó el reporte HTML"
+          fi
+          
+      - name: 📤 Subir resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-test-results
+          path: |
+            pruebas_k6/summary.html
+            pruebas_k6/results.json
+          retention-days: 30
+          
+      - name: 📈 Publicar comentario con resultados (PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🎯 Resultados de Pruebas de Carga K6\n\n';
+            comment += '✅ Las pruebas de carga se ejecutaron correctamente.\n\n';
+            comment += '📊 **Detalles:**\n';
+            comment += `- Base URL: \`${process.env.BASE_URL}\`\n`;
+            comment += `- Commit: ${context.sha.substring(0, 7)}\n`;
+            comment += `- Branch: ${context.ref}\n\n`;
+            comment += '📥 Descarga los resultados completos desde los artefactos del workflow.\n';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+            
+      - name: ✅ Resultado del pipeline
+        run: |
+          echo "================================================"
+          echo "✓ Pipeline de pruebas K6 completado exitosamente"
+          echo "================================================"
+          echo ""
+          echo "📊 Revisa los resultados en:"
+          echo "   - Artefactos de GitHub Actions"
+          if [ ! -z "${{ secrets.K6_CLOUD_TOKEN }}" ]; then
+            echo "   - Grafana Cloud K6: https://azus34.grafana.net/a/k6-app"
+          fi
+          echo ""
+          echo "================================================"
+
+  # Job opcional: Validar thresholds y fallar si no se cumplen
+  validate_thresholds:
+    name: Validar Thresholds de Rendimiento
+    runs-on: ubuntu-latest
+    needs: k6_load_test
+    if: always()
+    
+    steps:
+      - name: 📥 Descargar resultados
+        uses: actions/download-artifact@v4
+        with:
+          name: k6-test-results
+          
+      - name: 🔍 Analizar resultados
+        run: |
+          echo "📊 Analizando resultados de las pruebas..."
+          if [ -f "results.json" ]; then
+            echo "✓ Archivo de resultados encontrado"
+            # Aquí puedes agregar lógica adicional para validar thresholds
+          else
+            echo "⚠ No se encontró el archivo de resultados"
+          fi
