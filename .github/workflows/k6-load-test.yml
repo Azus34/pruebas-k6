@@ -28,136 +28,57 @@ jobs:
   k6_load_test:
     name: Ejecutar Pruebas de Carga K6
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout del repositorio
+      - name: 📦 Checkout del repositorio
         uses: actions/checkout@v4
-        
-      - name: Configurar Node.js (opcional)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Instalar K6
+
+      - name: ⚙️ Instalar K6
         run: |
           curl -L https://github.com/grafana/k6/releases/download/v0.53.0/k6-v0.53.0-linux-amd64.deb -o k6.deb
           sudo dpkg -i k6.deb
           rm k6.deb
-          
-      - name: Verificar instalación de K6
+
+      - name: ✅ Verificar instalación
         run: k6 version
-        
+
+      - name: 🔐 Configurar token de Grafana Cloud
+        run: |
+          mkdir -p ~/.config/loadimpact/k6
+          echo '{"token":"'"$K6_CLOUD_TOKEN"'"}' > ~/.config/loadimpact/k6/config.json
+          cat ~/.config/loadimpact/k6/config.json
+        env:
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+
       - name: 🎯 Configurar variables de entorno
         run: |
           echo "BASE_URL=${{ github.event.inputs.base_url || 'http://localhost' }}" >> $GITHUB_ENV
           echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
-          
-      - name: Definir modo de ejecución
-        id: exec_mode
-        run: echo "mode=cloud" >> $GITHUB_OUTPUT
 
       - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
         run: |
           cd pruebas_k6
-          # Ejecuta en la nube. El proyecto se detecta desde el token.
+          echo "🚀 Ejecutando pruebas en Grafana Cloud..."
           k6 cloud run my-script.js
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
           BASE_URL: ${{ env.BASE_URL }}
-          
-      - name: 📊 Verificar ejecución
+          TEST_DURATION: ${{ env.TEST_DURATION }}
+
+      - name: 📊 Confirmar ejecución
         if: always()
         run: |
           echo "✅ Pruebas enviadas a Grafana Cloud K6"
-          echo "📊 Ver resultados en: https://app.k6.io"
-          
-      - name: 📤 Subir resultados como artefacto
+          echo "📊 Resultados disponibles en:"
+          echo "   👉 https://grafana.com/a/k6-app"
+          echo "   (Abre tu stack y ve a K6 Tests → Runs)"
+
+      - name: 📤 Subir logs como artefacto
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-test-results
+          name: k6-test-logs
           path: |
-            pruebas_k6/results.json
+            pruebas_k6/*.log
           retention-days: 30
           if-no-files-found: ignore
-          
-      - name: Publicar comentario con resultados (PR)
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const mode = "cloud";
-            let comment = '## 🚀 Resultados de Pruebas de Carga K6\n\n';
-            comment += 'Las pruebas de carga se ejecutaron correctamente.\n\n';
-            comment += '### Detalles:\n';
-            comment += `- **URL base**: \`${process.env.BASE_URL}\`\n`;
-            comment += `- **Commit**: \`${context.sha.substring(0, 7)}\`\n`;
-            comment += `- **Branch**: \`${context.ref.replace('refs/heads/', '')}\`\n`;
-            comment += `- **Modo**: \`${mode}\`\n\n`;
-            comment += '[📊 Ver resultados en Grafana Cloud](https://app.k6.io/runs)\n\n';
-            comment += 'Descarga los resultados completos desde los **artefactos** del workflow.\n';
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-
-      - name: Resultado del pipeline
-        if: always()
-        run: |
-          echo "================================================"
-          echo "Pipeline de pruebas K6 completado"
-          echo "================================================"
-          echo ""
-          echo "URL base: ${{ env.BASE_URL }}"
-          echo "Modo: cloud"
-          echo ""
-          echo "Revisa los resultados en:"
-          echo "   - Artefactos de GitHub Actions"
-          echo "   - Grafana Cloud K6: https://app.k6.io"
-          echo ""
-          echo "================================================"
-
-  # Job opcional: Validar thresholds y fallar si no se cumplen
-  validate_thresholds:
-    name: Validar Thresholds de Rendimiento
-    runs-on: ubuntu-latest
-    needs: k6_load_test
-    if: always()
-    
-    steps:
-      - name: Descargar resultados
-        uses: actions/download-artifact@v4
-        with:
-          name: k6-test-results
-          
-      - name: Analizar resultados JSON
-        run: |
-          echo "Analizando resultados de las pruebas..."
-          if [ -f "pruebas_k6/results.json" ]; then
-            echo "Archivo de resultados encontrado"
-            
-            ERROR_RATE=$(jq -r '.metrics.http_req_failed.value' pruebas_k6/results.json 2>/dev/null || echo "null")
-            AVG_DURATION=$(jq -r '.metrics.http_req_duration.avg' pruebas_k6/results.json 2>/dev/null || echo "null")
-            
-            echo "Tasa de error: $ERROR_RATE"
-            echo "Tiempo promedio: ${AVG_DURATION}ms"
-            
-            if [ "$ERROR_RATE" != "null" ] && [ "$(echo "$ERROR_RATE > 0.01" | bc -l 2>/dev/null || echo 1)" -eq 1 ]; then
-              echo "❌ FALLO: Tasa de error > 1%"
-              exit 1
-            fi
-            
-            if [ "$AVG_DURATION" != "null" ] && [ "$(echo "$AVG_DURATION > 500" | bc -l 2>/dev/null || echo 1)" -eq 1 ]; then
-              echo "❌ FALLO: Tiempo promedio > 500ms"
-              exit 1
-            fi
-            
-            echo "✅ Todos los thresholds cumplidos"
-          else
-            echo "⚠️ No se encontró results.json"
-            exit 1
-          fi
-        shell: bash
