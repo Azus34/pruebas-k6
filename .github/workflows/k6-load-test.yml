@@ -59,11 +59,16 @@ jobs:
           echo "BASE_URL=${{ github.event.inputs.base_url || 'http://localhost' }}" >> $GITHUB_ENV
           echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
 
-      - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
+      - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud (FPS API)
         run: |
           cd pruebas_k6
-          echo "🚀 Ejecutando pruebas en Grafana Cloud..."
-          k6 cloud run my-script.js
+          echo "🚀 Ejecutando pruebas de carga para FPS Survival API..."
+          # Usar fps-api-test.js si existe, sino usar my-script.js
+          if [ -f fps-api-test.js ]; then
+            k6 cloud run fps-api-test.js --vus 15 --duration 5m30s
+          else
+            k6 cloud run my-script.js
+          fi
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
           BASE_URL: ${{ env.BASE_URL }}
