@@ -49,7 +49,7 @@ jobs:
         
       - name: 🔐 Autenticar con Grafana Cloud K6
         run: |
-          k6 cloud login --token ${{ secrets.K6_CLOUD_TOKEN }}
+          k6 cloud login --token "${{ secrets.K6_CLOUD_TOKEN }}"
         
       - name: 🎯 Configurar variables de entorno
         run: |
