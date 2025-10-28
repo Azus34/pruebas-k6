@@ -59,8 +59,8 @@ jobs:
       - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
         run: |
           cd pruebas_k6
-          # Ejecuta en la nube, asigna el proyecto y pasa variables al entorno
-          k6 cloud run my-script.js --project-id 5266622
+          # Ejecuta en la nube. El proyecto se detecta desde el token.
+          k6 cloud run my-script.js
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
           BASE_URL: ${{ env.BASE_URL }}
