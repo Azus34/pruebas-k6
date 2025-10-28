@@ -44,11 +44,8 @@ jobs:
 
       - name: 🔐 Configurar token de Grafana Cloud
         run: |
-          mkdir -p ~/.config/k6
-          echo '{"token": "'${K6_TOKEN}'"}' > ~/.config/k6/config.json
-          echo "Token configurado correctamente en ~/.config/k6/config.json"
-          echo "Verificando configuración..."
-          cat ~/.config/k6/config.json
+          echo "Configurando token de Grafana Cloud via variable de entorno..."
+          echo "K6_CLOUD_TOKEN está configurado: $(if [ -n "$K6_TOKEN" ]; then echo 'Sí'; else echo 'No'; fi)"
         env:
           K6_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
 
