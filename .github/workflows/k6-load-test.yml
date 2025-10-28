@@ -29,18 +29,14 @@ jobs:
     name: Ejecutar Pruebas de Carga K6
     runs-on: ubuntu-latest
     environment: K6_CLOUD_TOKEN
+    container:
+      image: grafana/k6:latest
 
     steps:
       - name: 📦 Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: ⚙️ Instalar K6
-        run: |
-          curl -L https://github.com/grafana/k6/releases/download/v0.53.0/k6-v0.53.0-linux-amd64.deb -o k6.deb
-          sudo dpkg -i k6.deb
-          rm k6.deb
-
-      - name: ✅ Verificar instalación
+      - name: ✅ Verificar instalación de K6
         run: k6 version
 
       - name: 🔐 Configurar token de Grafana Cloud
