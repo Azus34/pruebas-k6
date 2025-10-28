@@ -45,9 +45,13 @@ jobs:
       - name: 🔐 Configurar token de Grafana Cloud
         run: |
           echo "Configurando token de Grafana Cloud via variable de entorno..."
-          echo "K6_CLOUD_TOKEN está configurado: $(if [ -n "$K6_TOKEN" ]; then echo 'Sí'; else echo 'No'; fi)"
+          echo "K6_CLOUD_TOKEN está configurado: $(if [ -n "$K6_CLOUD_TOKEN" ]; then echo 'Sí'; else echo 'No - ERROR: Token no disponible'; fi)"
+          if [ -z "$K6_CLOUD_TOKEN" ]; then
+            echo "ERROR: El secret K6_CLOUD_TOKEN no está configurado en GitHub Actions"
+            exit 1
+          fi
         env:
-          K6_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
 
       - name: 🎯 Configurar variables de entorno
         run: |
