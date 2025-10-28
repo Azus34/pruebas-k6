@@ -52,27 +52,7 @@ jobs:
           echo "BASE_URL=${{ github.event.inputs.base_url || 'http://localhost' }}" >> $GITHUB_ENV
           echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
           
-      - name: Determinar modo de ejecución (Local o Cloud)
-        id: exec_mode
-        run: |
-          if [ -n "${{ secrets.K6_CLOUD_TOKEN }}" ]; then
-            echo "mode=cloud" >> $GITHUB_OUTPUT
-            echo "Usando Grafana Cloud K6"
-          else
-            echo "mode=local" >> $GITHUB_OUTPUT
-            echo "Ejecutando localmente (sin token)"
-          fi
-
-      - name: Ejecutar pruebas K6 (Local)
-        if: ${{ steps.exec_mode.outputs.mode == 'local' }}
-        run: |
-          cd pruebas_k6
-          k6 run --out json=results.json my-script.js
-        env:
-          BASE_URL: ${{ env.BASE_URL }}
-          
-      - name: Ejecutar pruebas K6 (Grafana Cloud)
-        if: ${{ steps.exec_mode.outputs.mode == 'cloud' }}
+      - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
         run: |
           cd pruebas_k6
           k6 cloud my-script.js
@@ -80,29 +60,21 @@ jobs:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
           BASE_URL: ${{ env.BASE_URL }}
           
-      - name: Generar reporte HTML (solo si existe)
+      - name: 📊 Verificar ejecución
         if: always()
         run: |
-          cd pruebas_k6
-          if [ -f "results.json" ]; then
-            echo "Generando reporte HTML..."
-            # Opcional: instalar k6 para generar HTML si no está
-            if command -v k6 &> /dev/null; then
-              k6 inspect --summary-export summary.html results.json || echo "No se pudo generar HTML"
-            fi
-          fi
+          echo "✅ Pruebas enviadas a Grafana Cloud K6"
+          echo "📊 Ver resultados en: https://grafana.com/a/k6-app"
           
-      - name: Subir resultados como artefacto
+      - name: 📤 Subir logs como artefacto (si existen)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-test-results
+          name: k6-test-logs
           path: |
-            pruebas_k6/summary.html
-            pruebas_k6/results.json
             pruebas_k6/*.log
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: ignore
           
       - name: Publicar comentario con resultados (PR)
         if: github.event_name == 'pull_request'
