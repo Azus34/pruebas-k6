@@ -9,26 +9,11 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      base_url:
-        description: 'URL base de la aplicación a probar'
-        required: false
-        default: 'http://localhost'
-      test_duration:
-        description: 'Duración de la prueba'
-        required: false
-        default: 'standard'
-        type: choice
-        options:
-          - quick
-          - standard
-          - extended
 
 jobs:
   k6_load_test:
     name: Ejecutar Pruebas de Carga K6
     runs-on: ubuntu-latest
-    environment: K6_CLOUD_TOKEN
 
     steps:
       - name: 📦 Checkout del repositorio
@@ -36,14 +21,18 @@ jobs:
 
       - name: ⚙️ Instalar K6
         run: |
-          curl -L https://github.com/grafana/k6/releases/download/v0.53.0/k6-v0.53.0-linux-amd64.deb -o k6.deb
-          sudo dpkg -i k6.deb
-          rm k6.deb
+          sudo apt-get update
+          sudo apt-get install -y gnupg2 apt-transport-https
+          sudo mkdir -p /etc/apt/keyrings
+          gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3232A
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable-focal.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
-      - name: ✅ Verificar instalación
+      - name: ✅ Verificar instalación de K6
         run: k6 version
 
-      - name: � Instalar dependencias de Node.js
+      - name: 📦 Instalar dependencias de Node.js
         run: |
           cd fps-api
           npm install
@@ -51,75 +40,52 @@ jobs:
       - name: 🚀 Iniciar servidor FPS API
         run: |
           cd fps-api
-          npm start &
-          sleep 3
-          echo "✅ Servidor iniciado"
-
-      - name: 🔐 Validar token de Grafana Cloud
-        run: |
-          if [ -z "$K6_CLOUD_TOKEN" ]; then
-            echo "❌ ERROR: El secret K6_CLOUD_TOKEN no está configurado"
-            echo "⚠️  Asegúrate de agregar el secret en:"
-            echo "   Settings → Secrets and variables → Actions → New repository secret"
+          npm start > server.log 2>&1 &
+          SERVER_PID=$!
+          echo $SERVER_PID > server.pid
+          sleep 5
+          if ps -p $SERVER_PID > /dev/null; then
+            echo "✅ Servidor iniciado (PID: $SERVER_PID)"
+          else
+            echo "❌ Error: Servidor no se inició"
+            cat server.log
             exit 1
           fi
-          echo "✅ Token de Grafana Cloud validado"
-        env:
-          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
-
-      - name: 🎯 Configurar variables de entorno
-        run: |
-          # Usar localhost:3000 porque el servidor se inició en este paso
-          BASE_URL="${{ github.event.inputs.base_url || 'http://localhost:3000' }}"
-          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
-          echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
-          echo "📍 BASE_URL configurada como: ${BASE_URL}"
 
       - name: 🧪 Verificar conectividad con el servidor
         run: |
-          echo "Intentando conectar con el servidor en ${{ env.BASE_URL }}..."
-          for i in {1..10}; do
-            if curl -s "${{ env.BASE_URL }}/api/health" > /dev/null; then
-              echo "✅ Conexión exitosa con el servidor"
+          echo "Intentando conectar con localhost:3000..."
+          for i in {1..20}; do
+            if curl -s -f http://localhost:3000/api/health > /dev/null 2>&1; then
+              echo "✅ Conexión exitosa en intento $i"
+              curl -s http://localhost:3000/api/health | head -20
               exit 0
             fi
-            echo "⏳ Intento $i/10..."
-            sleep 2
+            echo "⏳ Intento $i/20 - Esperando..."
+            sleep 1
           done
           echo "❌ No se pudo conectar con el servidor"
           exit 1
 
-      - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud (FPS API)
+      - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
         run: |
           cd pruebas_k6
-          echo "🚀 Ejecutando pruebas de carga para FPS Survival API..."
-          echo "   📊 BASE_URL: ${{ env.BASE_URL }}"
-          echo "   ⏱️  DURACIÓN: ${{ env.TEST_DURATION }}"
-          
-          if [ -f fps-api-test.js ]; then
-            k6 cloud run fps-api-test.js
-          else
-            k6 cloud run my-script.js
-          fi
+          echo "🚀 Ejecutando pruebas de carga..."
+          k6 cloud run fps-api-test.js
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
-          BASE_URL: ${{ env.BASE_URL }}
-          TEST_DURATION: ${{ env.TEST_DURATION }}
 
       - name: 📊 Confirmar ejecución
         if: always()
         run: |
-          echo "✅ Pruebas enviadas a Grafana Cloud K6"
-          echo "📊 Resultados disponibles en:"
-          echo "   👉 https://grafana.com/a/k6-app"
-          echo "   (Abre tu stack y ve a K6 Tests → Runs)"
+          echo "✅ Pruebas completadas"
+          echo "📊 Resultados: https://grafana.com/a/k6-app"
 
-      - name: 📤 Subir logs como artefacto
+      - name: 📤 Subir logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-test-logs
-          path: |
-            pruebas_k6/*.log
+          name: k6-logs
+          path: fps-api/server.log
           retention-days: 30
           if-no-files-found: ignore
