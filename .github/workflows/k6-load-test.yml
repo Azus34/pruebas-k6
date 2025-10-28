@@ -29,12 +29,19 @@ jobs:
     name: Ejecutar Pruebas de Carga K6
     runs-on: ubuntu-latest
     environment: K6_CLOUD_TOKEN
-    container:
-      image: grafana/k6:latest
 
     steps:
       - name: 📦 Checkout del repositorio
         uses: actions/checkout@v4
+
+      - name: ⚙️ Instalar K6 con apt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3232A
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable.list
+          sudo apt-get update
+          sudo apt-get install -y k6
 
       - name: ✅ Verificar instalación de K6
         run: k6 version
