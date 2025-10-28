@@ -47,7 +47,11 @@ jobs:
       - name: Verificar instalación de K6
         run: k6 version
         
-      - name: Configurar variables de entorno
+      - name: 🔐 Autenticar con Grafana Cloud K6
+        run: |
+          k6 cloud login --token ${{ secrets.K6_CLOUD_TOKEN }}
+        
+      - name: 🎯 Configurar variables de entorno
         run: |
           echo "BASE_URL=${{ github.event.inputs.base_url || 'http://localhost' }}" >> $GITHUB_ENV
           echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
@@ -55,7 +59,7 @@ jobs:
       - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
         run: |
           cd pruebas_k6
-          k6 cloud my-script.js
+          k6 cloud run my-script.js
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
           BASE_URL: ${{ env.BASE_URL }}
