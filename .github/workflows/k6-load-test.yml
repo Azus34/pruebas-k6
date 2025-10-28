@@ -28,6 +28,7 @@ jobs:
   k6_load_test:
     name: Ejecutar Pruebas de Carga K6
     runs-on: ubuntu-latest
+    environment: K6_CLOUD_TOKEN
 
     steps:
       - name: 📦 Checkout del repositorio
