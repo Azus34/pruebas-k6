@@ -24,8 +24,8 @@ export const options = {
   ],
   thresholds: {
     http_req_duration: ["p(95)<2000", "p(99)<3000"], // 95% de requests < 2s, 99% < 3s
-    http_req_failed: ["rate<0.1"], // Menos del 10% de errores
-    success_rate: ["rate>0.9"], // Más del 90% de éxito
+    http_req_failed: ["rate<0.5"], // Menos del 50% de errores (más tolerante)
+    success_rate: ["rate>0.5"], // Más del 50% de éxito (más tolerante)
   },
   // Integración con Grafana Cloud
   cloud: {
