@@ -26,7 +26,7 @@ export const options = {
   },
   // Integración con Grafana Cloud
   cloud: {
-    projectID: 3735219,
+    projectID: 5266622,
     name: "FPS Survival API Load Test"
   }
 };
