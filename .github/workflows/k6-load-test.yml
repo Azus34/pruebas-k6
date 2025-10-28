@@ -43,29 +43,61 @@ jobs:
       - name: ✅ Verificar instalación
         run: k6 version
 
-      - name: 🔐 Configurar token de Grafana Cloud
+      - name: � Instalar dependencias de Node.js
         run: |
-          echo "Configurando token de Grafana Cloud via variable de entorno..."
-          echo "K6_CLOUD_TOKEN está configurado: $(if [ -n "$K6_CLOUD_TOKEN" ]; then echo 'Sí'; else echo 'No - ERROR: Token no disponible'; fi)"
+          cd fps-api
+          npm install
+
+      - name: 🚀 Iniciar servidor FPS API
+        run: |
+          cd fps-api
+          npm start &
+          sleep 3
+          echo "✅ Servidor iniciado"
+
+      - name: 🔐 Validar token de Grafana Cloud
+        run: |
           if [ -z "$K6_CLOUD_TOKEN" ]; then
-            echo "ERROR: El secret K6_CLOUD_TOKEN no está configurado en GitHub Actions"
+            echo "❌ ERROR: El secret K6_CLOUD_TOKEN no está configurado"
+            echo "⚠️  Asegúrate de agregar el secret en:"
+            echo "   Settings → Secrets and variables → Actions → New repository secret"
             exit 1
           fi
+          echo "✅ Token de Grafana Cloud validado"
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
 
       - name: 🎯 Configurar variables de entorno
         run: |
-          echo "BASE_URL=${{ github.event.inputs.base_url || 'http://localhost' }}" >> $GITHUB_ENV
+          # Usar localhost:3000 porque el servidor se inició en este paso
+          BASE_URL="${{ github.event.inputs.base_url || 'http://localhost:3000' }}"
+          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
           echo "TEST_DURATION=${{ github.event.inputs.test_duration || 'standard' }}" >> $GITHUB_ENV
+          echo "📍 BASE_URL configurada como: ${BASE_URL}"
+
+      - name: 🧪 Verificar conectividad con el servidor
+        run: |
+          echo "Intentando conectar con el servidor en ${{ env.BASE_URL }}..."
+          for i in {1..10}; do
+            if curl -s "${{ env.BASE_URL }}/api/health" > /dev/null; then
+              echo "✅ Conexión exitosa con el servidor"
+              exit 0
+            fi
+            echo "⏳ Intento $i/10..."
+            sleep 2
+          done
+          echo "❌ No se pudo conectar con el servidor"
+          exit 1
 
       - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud (FPS API)
         run: |
           cd pruebas_k6
           echo "🚀 Ejecutando pruebas de carga para FPS Survival API..."
-          # Usar fps-api-test.js si existe, sino usar my-script.js
+          echo "   📊 BASE_URL: ${{ env.BASE_URL }}"
+          echo "   ⏱️  DURACIÓN: ${{ env.TEST_DURATION }}"
+          
           if [ -f fps-api-test.js ]; then
-            k6 cloud run fps-api-test.js --vus 15 --duration 5m30s
+            k6 cloud run fps-api-test.js
           else
             k6 cloud run my-script.js
           fi

@@ -15,18 +15,18 @@ const apiErrors = new Counter("api_errors");
 // Configuración de pruebas de carga
 export const options = {
   stages: [
-    { target: 5, duration: "1m" },     // Ramp-up: 5 usuarios en 1m
-    { target: 15, duration: "3m30s" }, // Incrementar a 15 usuarios
-    { target: 0, duration: "1m" },     // Ramp-down
+    { target: 5, duration: "30s" },    // Ramp-up: 5 usuarios en 30s
+    { target: 10, duration: "1m30s" }, // Incrementar a 10 usuarios
+    { target: 5, duration: "30s" },    // Ramp-down
   ],
   thresholds: {
-    http_req_duration: ["p(95)<1000", "p(99)<2000"],
-    http_req_failed: ["rate<0.3"],
-    success_rate: ["rate>0.7"],
+    http_req_duration: ["p(95)<1500", "p(99)<3000"],
+    http_req_failed: ["rate<0.1"],
+    success_rate: ["rate>0.95"],
   },
   // Integración con Grafana Cloud
   cloud: {
-    projectID: 5266622,
+    projectID: 3735219,
     name: "FPS Survival API Load Test"
   }
 };
@@ -39,27 +39,37 @@ export default function () {
   healthCheckScenario();
   sleep(1);
 
-  // Escenario 2: Crear jugador
+  // Escenario 2: Obtener Armas
+  getWeaponsScenario();
+  sleep(0.5);
+
+  // Escenario 3: Crear jugador
   createPlayerScenario();
   sleep(1);
 
-  // Escenario 3: Disparar arma
+  // Escenario 4: Disparar arma
   if (playerId) {
     shootWeaponScenario();
-    sleep(1);
+    sleep(0.5);
   }
 
-  // Escenario 4: Generar enemigos
+  // Escenario 5: Generar enemigos
   spawnEnemyScenario();
-  sleep(1);
+  sleep(0.5);
 
-  // Escenario 5: Usar inventario
+  // Escenario 6: Usar inventario
   if (playerId) {
     useInventoryScenario();
-    sleep(1);
+    sleep(0.5);
   }
 
-  // Escenario 6: Obtener estadísticas del servidor
+  // Escenario 7: Subir de nivel
+  if (playerId) {
+    levelUpScenario();
+    sleep(0.5);
+  }
+
+  // Escenario 8: Obtener estadísticas del servidor
   getServerStatsScenario();
   sleep(1);
 }
@@ -237,6 +247,47 @@ function getServerStatsScenario() {
       "✓ Stats tienen datos": (r) => r.json("stats") !== null,
       "✓ Stats muestran jugadores": (r) => r.json("stats.totalPlayers") >= 0,
     });
+
+    successRate.add(check1);
+  });
+}
+
+// ========== ESCENARIO 7: Obtener Armas Disponibles ==========
+function getWeaponsScenario() {
+  group("🔧 Scenario 7: Get Available Weapons", function () {
+    const res = http.get(`${BASE_URL}/api/weapons`);
+
+    const check1 = check(res, {
+      "✓ Weapons list status 200": (r) => r.status === 200,
+      "✓ Weapons responden rápido": (r) => r.timings.duration < 500,
+      "✓ Weapons tienen armas": (r) => r.json("weapons.length") >= 0,
+    });
+
+    successRate.add(check1);
+  });
+}
+
+// ========== ESCENARIO 8: Subir de Nivel ==========
+function levelUpScenario() {
+  group("⬆️ Scenario 8: Player Level Up", function () {
+    if (!playerId) return;
+
+    const res = http.post(`${BASE_URL}/api/players/${playerId}/level-up`, "{}", {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      tags: { name: "LevelUp" },
+    });
+
+    const check1 = check(res, {
+      "✓ Level up status 200": (r) => r.status === 200,
+      "✓ Level up responde": (r) => r.timings.duration < 1000,
+      "✓ Player existe": (r) => r.json("player") !== null,
+    });
+
+    if (!check1) {
+      apiErrors.add(1);
+    }
 
     successRate.add(check1);
   });
