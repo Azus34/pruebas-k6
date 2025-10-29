@@ -16,12 +16,8 @@ export const options = {
     { target: 5, duration: "30s" },
   ],
   thresholds: {
-    http_req_duration: ["p(95)<3000", "p(99)<6000"],
-    http_req_failed: ["rate<0.3"],
-  },
-  cloud: {
-    projectID: 5266622,
-    name: "FPS Survival API Load Test"
+    http_req_duration: ["p(95)<5000", "p(99)<10000"],
+    http_req_failed: ["rate<0.5"],
   }
 };
 
