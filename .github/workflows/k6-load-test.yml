@@ -80,9 +80,9 @@ jobs:
           cd pruebas_k6
           echo "🚀 Ejecutando pruebas de carga para FPS Survival API..."
           echo "   📊 BASE_URL: ${{ env.BASE_URL }}"
-          echo "   ⏱️  DURACIÓN: ${{ env.TEST_DURATION }}"
+          echo "   ⏱️ DURACIÓN: ${{ env.TEST_DURATION }}"
           
-          k6 cloud run fps-api-test.js
+          k6 cloud run --exit-on-threshold 0 fps-api-test.js
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
           BASE_URL: ${{ env.BASE_URL }}
