@@ -21,7 +21,7 @@ export const options = {
   }
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:3000";
+const BASE_URL = __ENV.BASE_URL || "https://fps-api-production.up.railway.app/";
 let playerId = null;
 
 export default function () {
