@@ -21,16 +21,11 @@ jobs:
 
       - name: ⚙️ Instalar K6
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gnupg2 apt-transport-https
-          sudo mkdir -p /etc/apt/keyrings
-          gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3232A
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6-stable-focal.list
-          sudo apt-get update
-          sudo apt-get install -y k6
-
-      - name: ✅ Verificar instalación de K6
-        run: k6 version
+          cd /tmp
+          wget https://github.com/grafana/k6/releases/download/v0.53.0/k6-v0.53.0-linux-amd64.tar.gz
+          tar xzf k6-v0.53.0-linux-amd64.tar.gz
+          sudo mv k6 /usr/local/bin/
+          k6 version
 
       - name: 📦 Instalar dependencias de Node.js
         run: |
@@ -42,46 +37,45 @@ jobs:
           cd fps-api
           npm start > server.log 2>&1 &
           SERVER_PID=$!
-          echo $SERVER_PID > server.pid
+          echo "Servidor iniciado con PID: $SERVER_PID"
           sleep 5
+          
           if ps -p $SERVER_PID > /dev/null; then
-            echo "✅ Servidor iniciado (PID: $SERVER_PID)"
+            echo "✅ Servidor está corriendo"
           else
-            echo "❌ Error: Servidor no se inició"
+            echo "❌ Servidor no se inició"
             cat server.log
             exit 1
           fi
 
-      - name: 🧪 Verificar conectividad con el servidor
+      - name: 🧪 Verificar conectividad
         run: |
-          echo "Intentando conectar con localhost:3000..."
+          echo "Esperando que el servidor responda..."
           for i in {1..20}; do
             if curl -s -f http://localhost:3000/api/health > /dev/null 2>&1; then
-              echo "✅ Conexión exitosa en intento $i"
-              curl -s http://localhost:3000/api/health | head -20
+              echo "✅ Servidor listo en intento $i"
               exit 0
             fi
-            echo "⏳ Intento $i/20 - Esperando..."
+            echo "Intento $i..."
             sleep 1
           done
-          echo "❌ No se pudo conectar con el servidor"
+          echo "❌ Servidor no responde"
           exit 1
 
-      - name: ☁️ Ejecutar pruebas K6 en Grafana Cloud
+      - name: ☁️ Ejecutar pruebas K6
         run: |
           cd pruebas_k6
-          echo "🚀 Ejecutando pruebas de carga..."
           k6 cloud run fps-api-test.js
         env:
           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
 
-      - name: 📊 Confirmar ejecución
+      - name: �� Listo
         if: always()
         run: |
-          echo "✅ Pruebas completadas"
-          echo "📊 Resultados: https://grafana.com/a/k6-app"
+          echo "Pruebas completadas"
+          echo "Resultados: https://grafana.com/a/k6-app"
 
-      - name: 📤 Subir logs
+      - name: 📤 Guardar logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
