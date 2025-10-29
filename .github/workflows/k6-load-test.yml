@@ -33,12 +33,12 @@ jobs:
       - name: 📦 Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: ⚙️ Instalar K6
+      - name: ⚙️ Instalar K6 (v0.54.0)
         run: |
           cd /tmp
-          wget -q https://github.com/grafana/k6/releases/download/v0.53.0/k6-v0.53.0-linux-amd64.tar.gz
-          tar xzf k6-v0.53.0-linux-amd64.tar.gz
-          sudo mv k6-v0.53.0-linux-amd64/k6 /usr/local/bin/
+          wget -q https://github.com/grafana/k6/releases/download/v0.54.0/k6-v0.54.0-linux-amd64.tar.gz
+          tar xzf k6-v0.54.0-linux-amd64.tar.gz
+          sudo mv k6-v0.54.0-linux-amd64/k6 /usr/local/bin/
           chmod +x /usr/local/bin/k6
 
       - name: ✅ Verificar instalación
