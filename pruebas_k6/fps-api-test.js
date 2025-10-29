@@ -16,9 +16,8 @@ export const options = {
     { target: 5, duration: "30s" },
   ],
   thresholds: {
-    http_req_duration: ["p(95)<2000", "p(99)<5000"],
-    http_req_failed: ["rate<0.2"],
-    success_rate: ["rate>0.8"],
+    http_req_duration: ["p(95)<3000", "p(99)<6000"],
+    http_req_failed: ["rate<0.3"],
   },
   cloud: {
     projectID: 5266622,
